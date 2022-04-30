@@ -5,6 +5,7 @@ import sys
 
 HOST = '192.168.56.1'  # 本地回环检测
 
+
 def transmit(datafile, ptr):
     client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     with open(datafile, 'rb') as f:

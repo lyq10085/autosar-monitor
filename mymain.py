@@ -1,27 +1,23 @@
-# 处理txt监控数据
-# txt 数据格式 (tick, eventid, threadid)
-from typing import Any, Tuple
 import time
 from FSM import myThread
 import matplotlib.pyplot as plt
 import socket
-import threading
 from struct import unpack
 from threading import Thread
+import numpy as np
+# import draw
 
 BUFF_SIZE = 4000  # udp 缓冲区大小
-PORT = 18126 # 接受数据的端口 
+PORT = 18126  # 接受数据的端口
 
 FILE = './temp.txt'  # 存储监控数据的文件
 
-mutex = threading.Semaphore(1)  # udp服务器接受缓冲区 互斥信号量
-empty = threading.Semaphore(BUFF_SIZE)  # 缓冲区同步信号量
-full = threading.Semaphore(0)
+PARAM_FILE = './time_parameter'
+
+MAX_NUM_Thread_PER_CORE = 50  # 每核最多thread
 
 
 class Monitor(object):
-    # encapsulate monitordata to FSMs
-
     # eventid 和 trigger条件匹配
     # 0 task activate
     # 1 task terminate/activate
@@ -30,7 +26,10 @@ class Monitor(object):
     # todo 加入  event resoure spinlock  监控
     triggers = {0: ['activate', 'activate'], 1: ['terminate', 'start'], 2: ['terminate', 'start'],
                 16: ['preempt', 'resume']}
-    colordict = {'WAITING': 'lightblue', 'READY': 'green', 'RUNNING': 'red', 'SUSPENDED': 'white'}
+
+    statedict = {'UNKNOWN': -1, 'WAITING': 0, 'READY': 1, 'RUNNING': 2, 'SUSPENDED': 3}
+
+    tick = 0
 
     def __init__(self, datafile):
         self.datafile = datafile  # 监控txt文件路径
@@ -39,8 +38,14 @@ class Monitor(object):
         # self.datafile_loaded_ptr = 0
         self.datafile_process_ptr = 0
         self.preline = ['', '', '']  # 待处理行的上一行
-        # self.last_tick = 0  # 当前最大的时间戳
-        # self.overflowcnt = 0  # 时间戳溢出次数
+        self.tick = 0  # Monitor的当前时钟
+        # (key,value) = (threadid, narray)
+        # narray = (Instance, CET_sum, WCET, RT_sum, WCRT, IPT_sum, WCIPT)
+        self.param = {}
+        # (key, value) = (threadid, narray)
+        # narray = (CET_current, RT_current, IPT_current)
+        self.tmp_param = {}  # 每次运行的参数临时寄存 当thread结束一次运行就把参数写入self.timeparameter
+        self.coreload = 0
 
     def process(self):  # 读取监控数据 按行处理 创建状态机
         with open(self.datafile, encoding='utf-8') as f:
@@ -78,38 +83,87 @@ class Monitor(object):
             self.datafile_process_ptr = f.tell()  # 更新待处理位置
 
     def parseLine(self, line, flag):  # 当前行和前一行属于一次schedule  flag = true 否则flag = false
+        # 处理一行产生 len(self.thread[threadid]) 个 bar 信息
+        # 每个bar = (threadid, 开始时间, 持续时间, 持续状态)
+        # todo 用numpy存储每次产生的bar信息  将bar信息传递给画图模块
+        bars = np.zeros((MAX_NUM_Thread_PER_CORE, 4), dtype=int)
+
+        # 当前行进程变化前的状态
+        prestate = 'UNKNOWN'
+
+        # 当前行的数据信息
         (tick, eventid, threadid) = (int(x) for x in line)
-        if threadid in self.threads:  # thread 出现过
+
+        # thread 出现过
+        if threadid in self.threads:
+
+            prestate = self.threads[threadid].state  # 动作之前的状态
+
             if flag:  # 当前thread start or resume
                 self.threads[threadid].change(Monitor.triggers[eventid][1])
             else:  # 当前 thread activate or end or preempted
                 self.threads[threadid].change(Monitor.triggers[eventid][0])
-        else:  # thread 第一次出现
+
+            # 计算时间参数
+            duration = tick - self.timer[threadid]
+            if not (prestate == 'SUSPENDED'):
+                self.tmp_param[threadid][1] += duration  # response time
+            if prestate == 'RUNNING':
+                self.tmp_param[threadid][0] += duration  # core execution time
+            elif prestate == 'READY' and eventid == 1:  # IPT
+                self.tmp_param[threadid][2] += duration
+
+            #  每当有thread结束一次运行   计入self.param
+            if self.threads[threadid].state == 'SUSPENDED':
+                self.param[threadid][0] += 1  # 运行次数+1
+                self.param[threadid][1] += self.tmp_param[threadid][0]  # CET_sum
+                self.param[threadid][2] = max(self.param[threadid][2], self.tmp_param[threadid][0])  # WCET
+                self.param[threadid][3] += self.tmp_param[threadid][1]  # RT_sum
+                self.param[threadid][4] = max(self.param[threadid][4], self.tmp_param[threadid][1])  # WCRT
+                self.param[threadid][5] += self.tmp_param[threadid][2]  # IPT_sum
+                self.param[threadid][6] = max(self.param[threadid][6], self.tmp_param[threadid][2])  # WIPT
+
+                # 该thread的临时时间参数清零
+                for i in range(len(self.tmp_param[threadid])):
+                    self.tmp_param[threadid][i] = 0
+
+        # thread 第一次出现
+        else:
             # 判断 thread is task or isr?  what is its initial state?
             if flag:
+                prestate = 'READY' if eventid == 16 else 'SUSPENDED'
                 inistate = 'RUNNING'
             elif eventid == 0:
+                prestate = 'SUSPENDED'
                 inistate = 'READY'
             elif eventid == 16:
+                prestate = 'RUNNING'
                 inistate = 'WAITING'
             else:
+                prestate = 'RUNNING'
                 inistate = 'SUSPENDED'
-
+            # create thread
             self.threads[threadid] = myThread(threadid, 2 if eventid == 2 else 1, inistate)
-            self.timer[threadid] = tick  # 更新 thread 状态变化时间
-            # todo 画图 每个thread 都画个图
+            # 开始记录thread 的时间参数
+            self.param[threadid] = np.zeros((7,), dtype=np.uint64)  # 连续采集8天也不会溢出
+            self.tmp_param[threadid] = np.zeros((3,), dtype=np.uint64)
 
-    def ganttShow(self):
-        # todo fig format
-        # todo gif
-        # todo bar
-        # todo 处理无线长度的时间帧数据
-        # pass
-        plt.ylim(0, len(self.threads))
-        plt.yticks([i + 1 for i in range(len(self.threads))], [str(key) for key in self.threads.keys()])
+        self.timer[threadid] = tick  # thread 最后一次状态变化时间
+
+        # todo 画图 展示时间参数self.param  weibull拟合  需要用户在界面上指定拟合哪个thread的哪个时间参数
+        i = 0
+        for thread in self.threads.values():
+            bars[i, :] = np.array([thread.name, self.tick, tick - self.tick, Monitor.statedict[prestate]])
+            i += 1
+
+        #
+        # 状态变化产生一个bar信息  写入到文件 画图程序从中读取并作图
+
+        # 更新Monitor的时钟  todo 计算coreload
+        self.tick = tick
 
 
-class udpserver:
+class UdpServer:
     def __init__(self, datafile, PORT=18126, BUFF_SIZE=4000):
         # udp通讯相关
         self.PORT = PORT
@@ -157,7 +211,7 @@ def rundataprocess(monitor):
         monitor.process()
 
 
-def myformat():
+def myformat():  # todo 删除这里
     """ Format various aspect of the plot, such as labels,ticks, BBox
     :todo: Refactor to use a settings object
     """
@@ -177,8 +231,8 @@ def myformat():
 
 
 if __name__ == '__main__':
-    myformat()  # 初始化当前坐标区
-    # server = udpserver()
+    # myformat()  # 初始化当前坐标区
+    # server = UdpServer()
     # monitor = Monitor(FILE)
     with open(FILE, 'w') as file:  # 清除上次运行的文件内容
         pass
@@ -193,7 +247,7 @@ if __name__ == '__main__':
     #     t2 = time.perf_counter()
     #     print(f'time cost {t2 - t1}s')
 
-    server = udpserver(FILE)
+    server = UdpServer(FILE)
     monitor = Monitor(FILE)
     t1 = Thread(target=runudpserver, args=[server])
     t2 = Thread(target=rundataprocess, args=[monitor])
