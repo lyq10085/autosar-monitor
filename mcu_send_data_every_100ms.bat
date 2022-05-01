@@ -1,7 +1,7 @@
 ::设置中文编码
 chcp 65001
 set num=1
-set total=21 
+set total= 2 
 set /a ptr = 0
 echo 启用时间：%date% %time%
 echo 当时间为0时执行完毕

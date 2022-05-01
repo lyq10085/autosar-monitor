@@ -1,11 +1,11 @@
 import time
 from FSM import myThread
-import matplotlib.pyplot as plt
 import socket
 from struct import unpack
 from threading import Thread
 import numpy as np
-# import draw
+from draw import runGUI
+from multiprocessing import Process, Pipe
 
 BUFF_SIZE = 4000  # udp 缓冲区大小
 PORT = 18126  # 接受数据的端口
@@ -14,7 +14,7 @@ FILE = './temp.txt'  # 存储监控数据的文件
 
 PARAM_FILE = './time_parameter'
 
-MAX_NUM_Thread_PER_CORE = 50  # 每核最多thread
+MAX_NUM_Thread_PER_CORE = 100  # 每核最多thread
 
 
 class Monitor(object):
@@ -31,7 +31,7 @@ class Monitor(object):
 
     tick = 0
 
-    def __init__(self, datafile):
+    def __init__(self, datafile, pipe):
         self.datafile = datafile  # 监控txt文件路径
         self.threads = {}  # thread字典   threadid : Thread实例
         self.timer = {}  # 时间字典  threadid : tick for now
@@ -45,7 +45,7 @@ class Monitor(object):
         # (key, value) = (threadid, narray)
         # narray = (CET_current, RT_current, IPT_current)
         self.tmp_param = {}  # 每次运行的参数临时寄存 当thread结束一次运行就把参数写入self.timeparameter
-        self.coreload = 0
+        self.pipe = pipe # 给画图进程传递数据的管道
 
     def process(self):  # 读取监控数据 按行处理 创建状态机
         with open(self.datafile, encoding='utf-8') as f:
@@ -83,12 +83,8 @@ class Monitor(object):
             self.datafile_process_ptr = f.tell()  # 更新待处理位置
 
     def parseLine(self, line, flag):  # 当前行和前一行属于一次schedule  flag = true 否则flag = false
-        # 处理一行产生 len(self.thread[threadid]) 个 bar 信息
-        # 每个bar = (threadid, 开始时间, 持续时间, 持续状态)
-        # todo 用numpy存储每次产生的bar信息  将bar信息传递给画图模块
-        bars = np.zeros((MAX_NUM_Thread_PER_CORE, 4), dtype=int)
 
-        # 当前行进程变化前的状态
+        # 当前进程变化前的状态
         prestate = 'UNKNOWN'
 
         # 当前行的数据信息
@@ -151,10 +147,16 @@ class Monitor(object):
         self.timer[threadid] = tick  # thread 最后一次状态变化时间
 
         # todo 画图 展示时间参数self.param  weibull拟合  需要用户在界面上指定拟合哪个thread的哪个时间参数
+        # 处理一行产生 len(self.thread[threadid]) 个 bar 信息
+        # 每个bar = (threadid, 开始时间, 持续时间, 持续状态)
+        # todo 用numpy存储每次产生的bar信息  将bar信息传递给画图模块
+        bars = np.zeros((len(self.threads), 4), dtype=int)
         i = 0
         for thread in self.threads.values():
-            bars[i, :] = np.array([thread.name, self.tick, tick - self.tick, Monitor.statedict[prestate]])
+            bars[i, :] = np.array([thread.name, self.tick, tick - self.tick, Monitor.statedict[prestate if threadid == thread.name else thread.state]])
             i += 1
+
+        self.pipe.send(bars) # 传递bar给画图进程
 
         #
         # 状态变化产生一个bar信息  写入到文件 画图程序从中读取并作图
@@ -211,25 +213,6 @@ def rundataprocess(monitor):
         monitor.process()
 
 
-def myformat():  # todo 删除这里
-    """ Format various aspect of the plot, such as labels,ticks, BBox
-    :todo: Refactor to use a settings object
-    """
-    # format axis
-    plt.tick_params(
-        axis='both',  # format x and y
-        which='both',  # major and minor ticks affected
-        bottom='on',  # bottom edge ticks are on
-        top='off',  # top, left and right edge ticks are off
-        left='off',
-        right='off')
-
-    plt.xlim(0, 140)  # 横坐标单位ms
-    plt.title('Gantt for Task and ISR')
-    plt.xlabel('ms')
-    plt.xticks([i for i in range(0, 140, 10)], [str(i) for i in range(0, 140, 10)])
-
-
 if __name__ == '__main__':
     # myformat()  # 初始化当前坐标区
     # server = UdpServer()
@@ -247,9 +230,16 @@ if __name__ == '__main__':
     #     t2 = time.perf_counter()
     #     print(f'time cost {t2 - t1}s')
 
+    pipe = Pipe()  # pipe[0]接收端  pip[1]发送端
     server = UdpServer(FILE)
-    monitor = Monitor(FILE)
+    monitor = Monitor(FILE, pipe[1])
+    gui = Process(target=runGUI, args=(pipe[0],))
     t1 = Thread(target=runudpserver, args=[server])
     t2 = Thread(target=rundataprocess, args=[monitor])
+    gui.start()
     t1.start()
     t2.start()
+
+    gui.join()
+
+    print("gui exiting")
