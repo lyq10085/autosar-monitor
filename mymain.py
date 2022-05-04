@@ -1,4 +1,3 @@
-import time
 from FSM import myThread
 import socket
 from struct import unpack
@@ -11,8 +10,6 @@ BUFF_SIZE = 4000  # udp 缓冲区大小
 PORT = 18126  # 接受数据的端口
 
 FILE = './temp.txt'  # 存储监控数据的文件
-
-PARAM_FILE = './time_parameter'
 
 MAX_NUM_Thread_PER_CORE = 100  # 每核最多thread
 
@@ -45,7 +42,8 @@ class Monitor(object):
         # (key, value) = (threadid, narray)
         # narray = (CET_current, RT_current, IPT_current)
         self.tmp_param = {}  # 每次运行的参数临时寄存 当thread结束一次运行就把参数写入self.timeparameter
-        self.pipe = pipe # 给画图进程传递数据的管道
+        self.pipe = pipe  # 给画图进程传递数据的管道
+        self.coreload = 0  # 核心利用率
 
     def process(self):  # 读取监控数据 按行处理 创建状态机
         with open(self.datafile, encoding='utf-8') as f:
@@ -109,6 +107,10 @@ class Monitor(object):
             elif prestate == 'READY' and eventid == 1:  # IPT
                 self.tmp_param[threadid][2] += duration
 
+            # 计算cpu负载率
+            if 0 in self.tmp_param.keys():
+                self.coreload = 1 - self.tmp_param[0][0] / self.tmp_param[0][1]
+
             #  每当有thread结束一次运行   计入self.param
             if self.threads[threadid].state == 'SUSPENDED':
                 self.param[threadid][0] += 1  # 运行次数+1
@@ -141,27 +143,52 @@ class Monitor(object):
             # create thread
             self.threads[threadid] = myThread(threadid, 2 if eventid == 2 else 1, inistate)
             # 开始记录thread 的时间参数
+            # narray = (Instance, CET_sum, WCET, RT_sum, WCRT, IPT_sum, WCIPT)
             self.param[threadid] = np.zeros((7,), dtype=np.uint64)  # 连续采集8天也不会溢出
             self.tmp_param[threadid] = np.zeros((3,), dtype=np.uint64)
 
         self.timer[threadid] = tick  # thread 最后一次状态变化时间
 
-        # todo 画图 展示时间参数self.param  weibull拟合  需要用户在界面上指定拟合哪个thread的哪个时间参数
         # 处理一行产生 len(self.thread[threadid]) 个 bar 信息
         # 每个bar = (threadid, 开始时间, 持续时间, 持续状态)
-        # todo 用numpy存储每次产生的bar信息  将bar信息传递给画图模块
         bars = np.zeros((len(self.threads), 4), dtype=int)
         i = 0
         for thread in self.threads.values():
-            bars[i, :] = np.array([thread.name, self.tick, tick - self.tick, Monitor.statedict[prestate if threadid == thread.name else thread.state]])
+            bars[i, :] = np.array([thread.name, self.tick, tick - self.tick,
+                                   Monitor.statedict[prestate if threadid == thread.name else thread.state]])
             i += 1
 
-        self.pipe.send(bars) # 传递bar给画图进程
+        # 计算时间参数
+        # parameters = { threadid : (Instance, CET_sum, WCET, RT_sum, WCRT, IPT_sum, WCIPT), ...}
+        parameters = np.zeros((len(self.threads) + 1,), dtype=[('ThreadID', np.uint64), ('Instance', np.uint64),
+                                                               ('CET_avg', np.float64), ('WCET', np.uint64),
+                                                               ('RT_avg', np.float64), ('WCRT', np.uint64),
+                                                               ('IPT_avg', np.float64), ('WCIPT', np.uint64),
+                                                               ('CoreLoad', np.float16)])
+
+        i = 0
+        for tid, narr in self.param.items():
+            if (not tid) or (not narr[0]):  # 跳过0号 idle task
+                continue
+            parameters['ThreadID'][i] = tid
+            parameters['Instance'][i] = narr[0]
+            parameters['CET_avg'][i] = narr[1] / narr[0]
+            parameters['WCET'][i] = narr[2]
+            parameters['RT_avg'][i] = narr[3] / narr[0]
+            parameters['WCRT'][i] = narr[4]
+            parameters['IPT_avg'][i] = narr[5] / narr[0]
+            parameters['WCIPT'][i] = narr[6]
+            if 0 in self.tmp_param and self.tmp_param[0][1]:
+                parameters['CoreLoad'][i] = narr[1] / self.tmp_param[0][1]
+            i += 1
+        parameters['CoreLoad'][i] = self.coreload
+
+        self.pipe.send([bars, parameters])  # 传递bar给画图进程
 
         #
         # 状态变化产生一个bar信息  写入到文件 画图程序从中读取并作图
 
-        # 更新Monitor的时钟  todo 计算coreload
+        # 更新Monitor的时钟
         self.tick = tick
 
 
@@ -239,7 +266,8 @@ if __name__ == '__main__':
     gui.start()
     t1.start()
     t2.start()
-
+    t1.join()
+    t2.join()
+    print('stop monitoring')
     gui.join()
-
     print("gui exiting")
