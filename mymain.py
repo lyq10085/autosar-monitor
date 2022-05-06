@@ -1,5 +1,6 @@
 from FSM import myThread
 import socket
+import time
 from struct import unpack
 from threading import Thread
 import numpy as np
@@ -7,7 +8,8 @@ from draw import runGUI
 from multiprocessing import Process, Pipe
 
 BUFF_SIZE = 4000  # udp 缓冲区大小
-PORT = 18126  # 接受数据的端口
+SERVERIP = '192.168.1.8'
+PORT = 18216  # 接受数据的端口
 
 FILE = './temp.txt'  # 存储监控数据的文件
 
@@ -28,7 +30,7 @@ class Monitor(object):
 
     tick = 0
 
-    def __init__(self, datafile, pipe):
+    def __init__(self, datafile, pipe, idletask=0): # 需要给出idletask的编号
         self.datafile = datafile  # 监控txt文件路径
         self.threads = {}  # thread字典   threadid : Thread实例
         self.timer = {}  # 时间字典  threadid : tick for now
@@ -36,6 +38,8 @@ class Monitor(object):
         self.datafile_process_ptr = 0
         self.preline = ['', '', '']  # 待处理行的上一行
         self.tick = 0  # Monitor的当前时钟
+        self.idletask = idletask
+        self.coreload = 0
         # (key,value) = (threadid, narray)
         # narray = (Instance, CET_sum, WCET, RT_sum, WCRT, IPT_sum, WCIPT)
         self.param = {}
@@ -43,7 +47,6 @@ class Monitor(object):
         # narray = (CET_current, RT_current, IPT_current)
         self.tmp_param = {}  # 每次运行的参数临时寄存 当thread结束一次运行就把参数写入self.timeparameter
         self.pipe = pipe  # 给画图进程传递数据的管道
-        self.coreload = 0  # 核心利用率
 
     def process(self):  # 读取监控数据 按行处理 创建状态机
         with open(self.datafile, encoding='utf-8') as f:
@@ -108,8 +111,8 @@ class Monitor(object):
                 self.tmp_param[threadid][2] += duration
 
             # 计算cpu负载率
-            if 0 in self.tmp_param.keys():
-                self.coreload = 1 - self.tmp_param[0][0] / self.tmp_param[0][1]
+            if self.idletask in self.tmp_param.keys():
+                self.coreload = 1 - self.tmp_param[self.idletask][0] / self.tmp_param[self.idletask][1]
 
             #  每当有thread结束一次运行   计入self.param
             if self.threads[threadid].state == 'SUSPENDED':
@@ -178,9 +181,11 @@ class Monitor(object):
             parameters['WCRT'][i] = narr[4]
             parameters['IPT_avg'][i] = narr[5] / narr[0]
             parameters['WCIPT'][i] = narr[6]
-            if 0 in self.tmp_param and self.tmp_param[0][1]:
-                parameters['CoreLoad'][i] = narr[1] / self.tmp_param[0][1]
+            if self.idletask in self.tmp_param and self.tmp_param[self.idletask][1]:
+                parameters['CoreLoad'][i] = narr[1] / self.tmp_param[self.idletask][1]
             i += 1
+        parameters['ThreadID'][i] = self.idletask
+        parameters['Instance'][i] = 1
         parameters['CoreLoad'][i] = self.coreload
 
         self.pipe.send([bars, parameters])  # 传递bar给画图进程
@@ -196,8 +201,9 @@ class UdpServer:
     def __init__(self, datafile, PORT=18126, BUFF_SIZE=4000):
         # udp通讯相关
         self.PORT = PORT
-        self.SERVER = socket.gethostbyname(socket.gethostname())  # 获取本机ip
+        # self.SERVER = socket.gethostbyname(socket.gethostname())  # 获取本机ip
         # print(self.SERVER) UDP服务器地址
+        self.SERVER = SERVERIP
         self.BUFF_SIZE = BUFF_SIZE  # 缓冲区大小4000byte
         # self.buffer = np.zeros(self.BUFF_SIZE, dtype=int)
         self.ADDR = (self.SERVER, self.PORT)
@@ -209,6 +215,9 @@ class UdpServer:
         self.datafile_loaded_ptr = 0
         self.overflowcnt = 0
         self.last_tick = 0
+
+        # 计时器  当前时间-timestone > 2s 认为单片机断开连接
+        self.timestone = 0
 
     def receive(self):  # 填满缓冲区
         print('starting receive\n')
@@ -246,20 +255,10 @@ if __name__ == '__main__':
     # monitor = Monitor(FILE)
     with open(FILE, 'w') as file:  # 清除上次运行的文件内容
         pass
-    #
-    # while True:
-    #     print('start receiving')
-    #     monitor.BuftoFile(server.receive())
-    #
-    #     t1 = time.perf_counter()
-    #     monitor.process()  # 这里会超时最好使用多线程
-    #     monitor.ganttShow()
-    #     t2 = time.perf_counter()
-    #     print(f'time cost {t2 - t1}s')
 
     pipe = Pipe()  # pipe[0]接收端  pip[1]发送端
-    server = UdpServer(FILE)
-    monitor = Monitor(FILE, pipe[1])
+    server = UdpServer(FILE, PORT)
+    monitor = Monitor(FILE, pipe[1], idletask=0)
     gui = Process(target=runGUI, args=(pipe[0],))
     t1 = Thread(target=runudpserver, args=[server])
     t2 = Thread(target=rundataprocess, args=[monitor])

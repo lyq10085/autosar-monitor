@@ -3,7 +3,7 @@ import socket
 from mymain import PORT
 import sys
 
-HOST = '192.168.56.1'  # 本地回环检测
+HOST = '192.168.1.8'
 
 
 def transmit(datafile, ptr):

@@ -1,7 +1,7 @@
 """
 Simple example using BarGraphItem
 """
-
+import json
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.dockarea.Dock import Dock
@@ -31,11 +31,13 @@ def tostart():
         stopsign = False
 
 
-def runGUI(pipe):
+def runGUI(pipe, core_num=1):
     # 每个bar = (threadid, 开始时间, 持续时间, 持续状态)
     bars = None
     # parameters = { threadid : (Instance, CET_sum, WCET, RT_sum, WCRT, IPT_sum, WCIPT), ...}
     parameters = {}
+    with open('./configuration.json', 'r') as f:
+        conf_dict = json.load(f)
 
     def runrecv(pipe):
         nonlocal bars, parameters
@@ -45,6 +47,9 @@ def runGUI(pipe):
             # print(parameters)
             bars = np.compress(bars[:, 3] != 3, bars, axis=0)  # 不画出停止运行的thread
             bars = np.compress(bars[:, 2] != 0, bars, axis=0)  # 持续时间为0的bars
+
+            # 区分core
+
             if bars.size:
                 bars_running = np.compress(bars[:, 3] == 2, bars, axis=0)
                 bars_waiting = np.compress(bars[:, 3] == 1, bars, axis=0)
@@ -69,8 +74,9 @@ def runGUI(pipe):
                 num += 1
                 # print(num)
 
-    t1 = Thread(target=runrecv, args=(pipe,))  # 接受数据线程
-    t1.start()
+    #
+    # t1 = Thread(target=runrecv, args=(pipe,))  # 接受数据线程
+    # t1.start()
     # 信号
 
     app = pg.mkQApp('monitor of thread')
@@ -98,23 +104,28 @@ def runGUI(pipe):
     label = pg.LabelItem(justify='right')
     pgantt.addItem(label)
     p1 = pgantt.addPlot(row=1, col=0)
+    p2 = pgantt.addPlot(row=1, col=1)
+    p3 = pgantt.addPlot(row=2, col=0)
+    p4 = pgantt.addPlot(row=2, col=1)
+    p5 = pgantt.addPlot(row=3, col=0)
+    p6 = pgantt.addPlot(row=3, col=1)
+
+    t1 = Thread(target=runrecv, args=(pipe,))  # 接受数据线程
+    t1.start()
+
     table = pg.TableWidget()
     pbutton1 = QPushButton('STOP')
     pbutton2 = QPushButton('START')
     pbutton1.setText('STOP')
-    pbutton2 = QPushButton('START')
-    pbutton2.setText('START')
+    # pbutton2 = QPushButton('START')
+    # pbutton2.setText('START')
     pbutton1.clicked.connect(tostop)
-    pbutton2.clicked.connect()
+    # pbutton2.clicked.connect()
     mylayout.addWidget(table, row=1, col=0)
     mylayout.addWidget(pbutton1, row=2, col=0)
     mylayout.addWidget(pbutton2, row=2, col=0)
 
     # # plot内部设置
-    # tsi = pg.TickSliderItem(orientation='left')
-    # tsi.addTick(12, movable=False)
-    # print(tsi.listTicks())
-    # p1.addItem(tsi)
     p1.setLabel('left', text='Thread ID')
     p1.setLabel('bottom', text='Time', units='ms')
     region = pg.LinearRegionItem()
