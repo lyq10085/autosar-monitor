@@ -1,7 +1,6 @@
 __pycache__
 .idea
 *.txt
-*.json
 realtimeplotting.py
 Untitled*.py
 test.py

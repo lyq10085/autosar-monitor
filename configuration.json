@@ -1,0 +1,190 @@
+{
+  "name" : "config1",
+  "threads":{
+            "12" : {
+              "threadname": "t1",
+              "coreid": 0
+            },
+            "18" : {
+              "threadname": "t2",
+              "coreid": 0
+            },
+            "21" : {
+              "threadname": "t3",
+              "coreid": 0
+            },
+            "23" : {
+              "threadname": "t4",
+              "coreid": 0
+            },
+            "26" : {
+              "threadname": "t5",
+              "coreid": 0
+            },
+            "30" : {
+              "threadname": "t5",
+              "coreid": 0
+            },
+            "32" : {
+                    "threadname": "t5",
+                    "coreid": 0
+            },
+            "34" : {
+                    "threadname": "t5",
+                    "coreid": 0
+            },
+            "40" : {
+                    "threadname": "t5",
+                    "coreid": 0
+            },
+            "41" : {
+                    "threadname": "t5",
+                    "coreid": 0
+            },
+            "42" : {
+                    "threadname": "t5",
+                    "coreid": 0
+            },
+            "48" : {
+                    "threadname": "t5",
+                    "coreid": 0
+            },
+            "52" : {
+                    "threadname": "t5",
+                    "coreid": 0
+            },
+            "0" : {
+                    "threadname": "t5",
+                    "coreid": 0
+            },
+            "13" : {
+                  "threadname": "t5",
+                    "coreid": 1
+            },
+            "24" : {
+                  "threadname": "t5",
+                    "coreid": 1
+            },
+            "27" : {
+                  "threadname": "t5",
+                    "coreid": 1
+            },
+            "35" : {
+                  "threadname": "t5",
+                    "coreid": 1
+            },
+            "43" : {
+                  "threadname": "t5",
+                    "coreid": 1
+            },
+            "14" : {
+                  "threadname": "t5",
+                    "coreid": 2
+            },
+            "25" : {
+                  "threadname": "t5",
+                    "coreid": 2
+            },
+            "36" : {
+                  "threadname": "t5",
+                    "coreid": 2
+            },
+            "44" : {
+                  "threadname": "t5",
+                    "coreid": 2
+            },
+            "15" : {
+                  "threadname": "t5",
+                    "coreid": 3
+            },
+            "19" : {
+                  "threadname": "t5",
+                    "coreid": 3
+            },
+            "22" : {
+                  "threadname": "t5",
+                    "coreid": 3
+            },
+            "28" : {
+                  "threadname": "t5",
+                    "coreid": 3
+            },
+            "31" : {
+                  "threadname": "t5",
+                    "coreid": 3
+            },
+            "33" : {
+                  "threadname": "t5",
+                    "coreid": 3
+            },
+            "37" : {
+                  "threadname": "t5",
+                    "coreid": 3
+            },
+            "45" : {
+                  "threadname": "t5",
+                    "coreid": 3
+            },
+            "16" : {
+                  "threadname": "t5",
+                    "coreid": 4
+            },
+            "20" : {
+                  "threadname": "t5",
+                    "coreid": 4
+            },
+            "38" : {
+                  "threadname": "t5",
+                    "coreid": 4
+            },
+             "46" : {
+                  "threadname": "t5",
+                    "coreid": 4
+            },
+             "17" : {
+                  "threadname": "t5",
+                    "coreid": 5
+            },
+            "29" : {
+                  "threadname": "t5",
+                    "coreid": 5
+            },
+            "39" : {
+                  "threadname": "t5",
+                    "coreid": 5
+            },
+            "47" : {
+                  "threadname": "t5",
+                    "coreid": 5
+            },
+            "1" : {
+                  "threadname": "t5",
+                    "coreid": 1
+            },
+            "2" : {
+                  "threadname": "t5",
+                    "coreid": 2
+            },
+            "3" : {
+                  "threadname": "t5",
+                    "coreid": 3
+            },
+           "4" : {
+                  "threadname": "t5",
+                    "coreid": 4
+            },
+            "5" : {
+                  "threadname": "t5",
+                    "coreid": 5
+            }
+  },
+
+  "core_idle": {
+    "0" : 0,
+    "1" : 1,
+    "2" : 2,
+    "3" : 3,
+    "4" : 4,
+    "5" : 5
+          }
+}

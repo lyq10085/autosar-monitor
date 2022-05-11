@@ -132,10 +132,8 @@ def runGUI(pipe, core_num=1):
     p6 = pgantt6.addPlot(row=6, col=0)
     plots = (p1, p2, p3, p4, p5, p6)
 
-
     t1 = Thread(target=runrecv, args=(pipe,))  # 接受数据线程
     t1.start()
-
 
     table = pg.TableWidget()
     pbutton1 = QPushButton('STOP')
@@ -164,11 +162,39 @@ def runGUI(pipe, core_num=1):
     p6.setLabel('bottom', text='Time', units='ms')
 
     # task名称设置
+    yax1 = p1.getAxis('left')
+    yax2 = p2.getAxis('left')
+    yax3 = p3.getAxis('left')
+    yax4 = p4.getAxis('left')
+    yax5 = p5.getAxis('left')
+    yax6 = p6.getAxis('left')
+    tick1 = []
+    tick2 = []
+    tick3 = []
+    tick4 = []
+    tick5 = []
+    tick6 = []
 
-    taskname = pg.TextItem(text='task 1')
-    p1.addItem(taskname)
-    taskname.setPos(1, 5)
-    p1.vb.enableAutoRange(x=True, y=True)
+    for threadid, threadinfo in conf_dict['threads'].items():
+        if threadinfo['coreid'] == 0:
+            tick1.append((int(threadid), threadinfo['threadname']))
+        elif threadinfo['coreid'] == 1:
+            tick2.append((int(threadid), threadinfo['threadname']))
+        elif threadinfo['coreid'] == 2:
+            tick3.append((int(threadid), threadinfo['threadname']))
+        elif threadinfo['coreid'] == 3:
+            tick4.append((int(threadid), threadinfo['threadname']))
+        elif threadinfo['coreid'] == 4:
+            tick5.append((int(threadid), threadinfo['threadname']))
+        elif threadinfo['coreid'] == 5:
+            tick6.append((int(threadid), threadinfo['threadname']))
+
+    yax1.setTicks([tick1])
+    yax2.setTicks([tick2])
+    yax3.setTicks([tick3])
+    yax4.setTicks([tick4])
+    yax5.setTicks([tick5])
+    yax6.setTicks([tick6])
 
     region = pg.LinearRegionItem()
     region.setZValue(10)
@@ -205,8 +231,6 @@ def runGUI(pipe, core_num=1):
     timer.timeout.connect(updateparameters)
     timer.start(50)
     # 参数更新的时钟  每50ms 更新统计时间参数
-
-
 
     win.show()
     pg.exec()
