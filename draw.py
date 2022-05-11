@@ -10,6 +10,7 @@ from pyqtgraph.Qt import QtWidgets
 from PyQt5.QtWidgets import QPushButton
 # from PyQt5.QtCore import pyqtSignal
 from threading import Thread
+import time
 
 stopsign = False
 
@@ -36,82 +37,105 @@ def runGUI(pipe, core_num=1):
     bars = None
     # parameters = { threadid : (Instance, CET_sum, WCET, RT_sum, WCRT, IPT_sum, WCIPT), ...}
     parameters = {}
+    # 当前core id
+    core_curr = 0
+    # thread配置信息
     with open('./configuration.json', 'r') as f:
         conf_dict = json.load(f)
 
-    def runrecv(pipe):
-        nonlocal bars, parameters
+    t0 = time.time()
+
+    def runrecv(pipe, *args):  # args 是plot对象tuple
+        nonlocal bars, parameters, core_curr
         num = 0
         while True:
-            bars, parameters = pipe.recv()
-            # print(parameters)
+            bars, parameters, core_curr = pipe.recv()
             bars = np.compress(bars[:, 3] != 3, bars, axis=0)  # 不画出停止运行的thread
             bars = np.compress(bars[:, 2] != 0, bars, axis=0)  # 持续时间为0的bars
-
-            # 区分core
 
             if bars.size:
                 bars_running = np.compress(bars[:, 3] == 2, bars, axis=0)
                 bars_waiting = np.compress(bars[:, 3] == 1, bars, axis=0)
                 bars_ready = np.compress(bars[:, 3] == 0, bars, axis=0)
-                # print(bars, '\n')
-                # todo 更新view视图
                 bg_run = pg.BarGraphItem(x0=bars_running[:, 1] * 0.00001, y=bars_running[:, 0],
                                          width=bars_running[:, 2] * 0.00001,
                                          height=1, brush='r', pen=pg.mkPen('r', width=0.01))
-                p1.addItem(bg_run)
+                plots[core_curr].addItem(bg_run)
                 if bars_waiting.size:
                     bg_wait = pg.BarGraphItem(x0=bars_waiting[:, 1] * 0.00001, y=bars_waiting[:, 0],
                                               width=bars_waiting[:, 2] * 0.00001,
                                               height=1, brush='y', pen=pg.mkPen('y', width=0.01))
-                    p1.addItem(bg_wait)
+                    plots[core_curr].addItem(bg_wait)
                 if bars_ready.size:
                     bg_ready = pg.BarGraphItem(x0=bars_ready[:, 1] * 0.00001, y=bars_ready[:, 0],
                                                width=bars_ready[:, 2] * 0.00001,
                                                height=3, brush='g', pen=pg.mkPen('g', width=0.01))
-                    p1.addItem(bg_ready)
+                    plots[core_curr].addItem(bg_ready)
+                #
+                # if time.time() - t0 > 0.5:
+                #     table.setData(parameters)
 
                 num += 1
                 # print(num)
-
-    #
-    # t1 = Thread(target=runrecv, args=(pipe,))  # 接受数据线程
-    # t1.start()
-    # 信号
 
     app = pg.mkQApp('monitor of thread')
 
     # mainwindow基本属性
     win = QtWidgets.QMainWindow()
     win.resize(1500, 800)
-    win.setWindowTitle('WatchDog')
+    win.setWindowTitle(conf_dict['name'])  # 窗口名设置为配置文件名
 
     # dock块设置
     area = DockArea()
     win.setCentralWidget(area)
     d1 = Dock("Gantt Show", size=(900, 400))
     d2 = Dock("Thread Time Parameter", size=(500, 400))
+    d3 = Dock("Gantt Show", size=(900, 400))
+    d4 = Dock("Gantt Show", size=(900, 400))
+    d5 = Dock("Gantt Show", size=(900, 400))
+    d6 = Dock("Gantt Show", size=(900, 400))
+    d7 = Dock("Gantt Show", size=(900, 400))
+
     area.addDock(d1, 'left')
+    area.addDock(d3, 'bottom', d1)
+    area.addDock(d4, 'bottom', d3)
+    area.addDock(d5, 'bottom', d4)
+    area.addDock(d6, 'bottom', d5)
+    area.addDock(d7, 'bottom', d6)
+
     area.addDock(d2, 'right')
 
     # dock内部设置
-    pgantt = pg.GraphicsLayoutWidget(show=True)
-    d1.addWidget(pgantt)
+    pgantt1 = pg.GraphicsLayoutWidget(show=True)
+    d1.addWidget(pgantt1)
+    pgantt2 = pg.GraphicsLayoutWidget(show=True)
+    d3.addWidget(pgantt2)
+    pgantt3 = pg.GraphicsLayoutWidget(show=True)
+    d4.addWidget(pgantt3)
+    pgantt4 = pg.GraphicsLayoutWidget(show=True)
+    d5.addWidget(pgantt4)
+    pgantt5 = pg.GraphicsLayoutWidget(show=True)
+    d6.addWidget(pgantt5)
+    pgantt6 = pg.GraphicsLayoutWidget(show=True)
+    d7.addWidget(pgantt6)
     mylayout = pg.LayoutWidget()
     d2.addWidget(mylayout)
 
     # graphicslayout/layoutwidget内部设置
     label = pg.LabelItem(justify='right')
-    pgantt.addItem(label)
-    p1 = pgantt.addPlot(row=1, col=0)
-    p2 = pgantt.addPlot(row=1, col=1)
-    p3 = pgantt.addPlot(row=2, col=0)
-    p4 = pgantt.addPlot(row=2, col=1)
-    p5 = pgantt.addPlot(row=3, col=0)
-    p6 = pgantt.addPlot(row=3, col=1)
+    pgantt1.addItem(label)
+    p1 = pgantt1.addPlot(row=1, col=0)
+    p2 = pgantt2.addPlot(row=2, col=0)
+    p3 = pgantt3.addPlot(row=3, col=0)
+    p4 = pgantt4.addPlot(row=4, col=0)
+    p5 = pgantt5.addPlot(row=5, col=0)
+    p6 = pgantt6.addPlot(row=6, col=0)
+    plots = (p1, p2, p3, p4, p5, p6)
+
 
     t1 = Thread(target=runrecv, args=(pipe,))  # 接受数据线程
     t1.start()
+
 
     table = pg.TableWidget()
     pbutton1 = QPushButton('STOP')
@@ -126,8 +150,26 @@ def runGUI(pipe, core_num=1):
     mylayout.addWidget(pbutton2, row=2, col=0)
 
     # # plot内部设置
-    p1.setLabel('left', text='Thread ID')
+    p1.setLabel('left', text='Thread on Core0')
     p1.setLabel('bottom', text='Time', units='ms')
+    p2.setLabel('left', text='Thread on Core1')
+    p2.setLabel('bottom', text='Time', units='ms')
+    p3.setLabel('left', text='Thread on Core2')
+    p3.setLabel('bottom', text='Time', units='ms')
+    p4.setLabel('left', text='Thread on Core3')
+    p4.setLabel('bottom', text='Time', units='ms')
+    p5.setLabel('left', text='Thread on core4')
+    p5.setLabel('bottom', text='Time', units='ms')
+    p6.setLabel('left', text='Thread on core5')
+    p6.setLabel('bottom', text='Time', units='ms')
+
+    # task名称设置
+
+    taskname = pg.TextItem(text='task 1')
+    p1.addItem(taskname)
+    taskname.setPos(1, 5)
+    p1.vb.enableAutoRange(x=True, y=True)
+
     region = pg.LinearRegionItem()
     region.setZValue(10)
     region.setRegion([0, 10])
@@ -152,7 +194,7 @@ def runGUI(pipe, core_num=1):
             vLine.setPos(mousePoint.x())
             hLine.setPos(mousePoint.y())
 
-    proxy = pg.SignalProxy(pgantt.scene().sigMouseMoved, rateLimit=80, slot=mouseMoved)
+    proxy = pg.SignalProxy(pgantt1.scene().sigMouseMoved, rateLimit=80, slot=mouseMoved)
 
     # 更新时间参数设置
     def updateparameters():
@@ -162,8 +204,9 @@ def runGUI(pipe, core_num=1):
     timer = pg.QtCore.QTimer()
     timer.timeout.connect(updateparameters)
     timer.start(50)
-
     # 参数更新的时钟  每50ms 更新统计时间参数
+
+
 
     win.show()
     pg.exec()

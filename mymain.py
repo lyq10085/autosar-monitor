@@ -1,6 +1,6 @@
 from FSM import myThread
 import socket
-import time
+import json
 from struct import unpack
 from threading import Thread
 import numpy as np
@@ -12,8 +12,13 @@ SERVERIP = '192.168.1.8'
 PORT = 18216  # 接受数据的端口
 
 FILE = './temp.txt'  # 存储监控数据的文件
-
+CONFIG_FILE = './configuration.json'  # thread和core对应关系的配置文件
 MAX_NUM_Thread_PER_CORE = 100  # 每核最多thread
+CORE_NUM = 1  # 核心数
+
+# 导入配置信息
+with open(CONFIG_FILE) as f:
+    conf_dict = json.load(f)
 
 
 class Monitor(object):
@@ -30,7 +35,7 @@ class Monitor(object):
 
     tick = 0
 
-    def __init__(self, datafile, pipe, idletask=0): # 需要给出idletask的编号
+    def __init__(self, datafile, pipe):  # 需要给出idletask的编号
         self.datafile = datafile  # 监控txt文件路径
         self.threads = {}  # thread字典   threadid : Thread实例
         self.timer = {}  # 时间字典  threadid : tick for now
@@ -38,14 +43,14 @@ class Monitor(object):
         self.datafile_process_ptr = 0
         self.preline = ['', '', '']  # 待处理行的上一行
         self.tick = 0  # Monitor的当前时钟
-        self.idletask = idletask
-        self.coreload = 0
-        # (key,value) = (threadid, narray)
+        self.idletasks = conf_dict['core_idle']  # (coreid, idletaskid)
+        self.coreloads = {}  # (coreid :  coreload)
+
         # narray = (Instance, CET_sum, WCET, RT_sum, WCRT, IPT_sum, WCIPT)
-        self.param = {}
-        # (key, value) = (threadid, narray)
+        self.param = {}  # (key,value) = (threadid, narray)
+
         # narray = (CET_current, RT_current, IPT_current)
-        self.tmp_param = {}  # 每次运行的参数临时寄存 当thread结束一次运行就把参数写入self.timeparameter
+        self.tmp_param = {}  # 每次运行的参数临时寄存 当thread结束一次运行就把参数写入self.timeparameter #(key, value) = (threadid, narray)
         self.pipe = pipe  # 给画图进程传递数据的管道
 
     def process(self):  # 读取监控数据 按行处理 创建状态机
@@ -110,9 +115,11 @@ class Monitor(object):
             elif prestate == 'READY' and eventid == 1:  # IPT
                 self.tmp_param[threadid][2] += duration
 
-            # 计算cpu负载率
-            if self.idletask in self.tmp_param.keys():
-                self.coreload = 1 - self.tmp_param[self.idletask][0] / self.tmp_param[self.idletask][1]
+            # 计算每个核负载率
+            for idletask in self.idletasks.values():
+                if idletask in self.tmp_param.keys() and self.tmp_param[idletask][1]:
+                    self.coreloads[conf_dict['threads'][str(idletask)]['coreid']] = \
+                        1 - self.tmp_param[idletask][0] / self.tmp_param[idletask][1]
 
             #  每当有thread结束一次运行   计入self.param
             if self.threads[threadid].state == 'SUSPENDED':
@@ -155,19 +162,22 @@ class Monitor(object):
         # 处理一行产生 len(self.thread[threadid]) 个 bar 信息
         # 每个bar = (threadid, 开始时间, 持续时间, 持续状态)
         bars = np.zeros((len(self.threads), 4), dtype=int)
+        # todo 只计算当前核上的thread的bars
         i = 0
-        for thread in self.threads.values():
-            bars[i, :] = np.array([thread.name, self.tick, tick - self.tick,
-                                   Monitor.statedict[prestate if threadid == thread.name else thread.state]])
-            i += 1
+        for threadname, thread in self.threads.items():
+            if conf_dict['threads'][str(threadname)]['coreid'] == conf_dict['threads'][str(threadid)]['coreid']:
+                bars[i, :] = np.array([thread.name, self.tick, tick - self.tick,
+                                       Monitor.statedict[prestate if threadid == thread.name else thread.state]])
+                i += 1
 
         # 计算时间参数
         # parameters = { threadid : (Instance, CET_sum, WCET, RT_sum, WCRT, IPT_sum, WCIPT), ...}
-        parameters = np.zeros((len(self.threads) + 1,), dtype=[('ThreadID', np.uint64), ('Instance', np.uint64),
-                                                               ('CET_avg', np.float64), ('WCET', np.uint64),
-                                                               ('RT_avg', np.float64), ('WCRT', np.uint64),
-                                                               ('IPT_avg', np.float64), ('WCIPT', np.uint64),
-                                                               ('CoreLoad', np.float16)])
+        parameters = np.zeros((len(self.threads) + 1,),
+                              dtype=[('ThreadID', np.uint64), ('Instance', np.uint64),  # todo 增加thread名
+                                     ('CET_avg', np.float64), ('WCET', np.uint64),
+                                     ('RT_avg', np.float64), ('WCRT', np.uint64),
+                                     ('IPT_avg', np.float64), ('WCIPT', np.uint64),
+                                     ('CoreLoad', np.float16)])
 
         i = 0
         for tid, narr in self.param.items():
@@ -181,17 +191,20 @@ class Monitor(object):
             parameters['WCRT'][i] = narr[4]
             parameters['IPT_avg'][i] = narr[5] / narr[0]
             parameters['WCIPT'][i] = narr[6]
-            if self.idletask in self.tmp_param and self.tmp_param[self.idletask][1]:
-                parameters['CoreLoad'][i] = narr[1] / self.tmp_param[self.idletask][1]
+            # idle_on_core = self.idletasks[str(conf_dict['threads'][str(tid)]['coreid'])]  # 与当前thread 同属一核的idle task
+            # if idle_on_core in self.tmp_param and self.tmp_param[idle_on_core][1]:
+            #     parameters['CoreLoad'][i] = narr[1] / self.tmp_param[idle_on_core][1]
             i += 1
-        parameters['ThreadID'][i] = self.idletask
-        parameters['Instance'][i] = 1
-        parameters['CoreLoad'][i] = self.coreload
 
-        self.pipe.send([bars, parameters])  # 传递bar给画图进程
+        # 处理idletask的数据   因为idle task永远不会停止 所以self.param中没有idle task的信息
+        for core in self.coreloads.keys():
+            parameters['ThreadID'][i] = self.idletasks[str(core)]
+            parameters['Instance'][i] = 1
+            parameters['CoreLoad'][i] = self.coreloads[core]
+            i += 1
 
-        #
-        # 状态变化产生一个bar信息  写入到文件 画图程序从中读取并作图
+        core_curr = conf_dict['threads'][str(threadid)]['coreid']
+        self.pipe.send([bars, parameters, core_curr])  # 传递bar给画图进程
 
         # 更新Monitor的时钟
         self.tick = tick
@@ -216,7 +229,7 @@ class UdpServer:
         self.overflowcnt = 0
         self.last_tick = 0
 
-        # 计时器  当前时间-timestone > 2s 认为单片机断开连接
+        # todo 计时器  当前时间-timestone > 2s 认为单片机断开连接 热插拔功能待开发中
         self.timestone = 0
 
     def receive(self):  # 填满缓冲区
@@ -258,8 +271,8 @@ if __name__ == '__main__':
 
     pipe = Pipe()  # pipe[0]接收端  pip[1]发送端
     server = UdpServer(FILE, PORT)
-    monitor = Monitor(FILE, pipe[1], idletask=0)
-    gui = Process(target=runGUI, args=(pipe[0],))
+    monitor = Monitor(FILE, pipe[1])
+    gui = Process(target=runGUI, args=(pipe[0], CORE_NUM))
     t1 = Thread(target=runudpserver, args=[server])
     t2 = Thread(target=rundataprocess, args=[monitor])
     gui.start()
