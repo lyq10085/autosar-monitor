@@ -1,180 +1,180 @@
 {
   "name" : "config1",
   "threads":{
-            "12" : {
-              "threadname": "t1",
+          "12" : {
+              "threadname": "OsTask_Rte_100ms_Core0",
               "coreid": 0
             },
-            "18" : {
-              "threadname": "t2",
+          "18" : {
+              "threadname": "OsTask_Rte_10ms_Core0",
               "coreid": 0
             },
-            "21" : {
-              "threadname": "t3",
+          "21" : {
+              "threadname": "OsTask_Rte_200ms_Core0",
               "coreid": 0
             },
-            "23" : {
-              "threadname": "t4",
+          "23" : {
+              "threadname": "OsTask_Rte_20ms_Core0",
               "coreid": 0
             },
-            "26" : {
-              "threadname": "t5",
+          "26" : {
+              "threadname": "OsTask_Rte_2ms_Core0",
               "coreid": 0
             },
-            "30" : {
-              "threadname": "t5",
+          "30" : {
+              "threadname": "OsTask_Rte_500ms_Core0",
               "coreid": 0
             },
-            "32" : {
-                    "threadname": "t5",
+          "32" : {
+                    "threadname": "OsTask_Rte_50ms_Core0",
                     "coreid": 0
             },
-            "34" : {
-                    "threadname": "t5",
+          "34" : {
+                    "threadname": "OsTask_Sch_10ms_Core0",
                     "coreid": 0
             },
-            "40" : {
-                    "threadname": "t5",
+          "40" : {
+                    "threadname": "OsTask_Sch_20ms_Core0",
                     "coreid": 0
             },
-            "41" : {
-                    "threadname": "t5",
+          "41" : {
+                    "threadname": "OsTask_Sch_5ms_Core0",
                     "coreid": 0
             },
-            "42" : {
-                    "threadname": "t5",
+          "42" : {
+                    "threadname": "Os_TraceId_CounterIsr_OsCounter_Core0",
                     "coreid": 0
             },
-            "48" : {
-                    "threadname": "t5",
+          "48" : {
+                    "threadname": "Os_TraceId_EthIsr_EthCtrlConfig_TriBoard_EthInterruptServiceRoutine_S2",
                     "coreid": 0
             },
-            "52" : {
-                    "threadname": "t5",
+          "52" : {
+                    "threadname": "Os_TraceId_EthIsr_EthCtrlConfig_TriBoard_EthInterruptServiceRoutine_S6",
                     "coreid": 0
             },
-            "0" : {
-                    "threadname": "t5",
-                    "coreid": 0
-            },
-            "13" : {
-                  "threadname": "t5",
+          "13" : {
+                  "threadname": "OsTask_Rte_100ms_Core1",
                     "coreid": 1
             },
-            "24" : {
-                  "threadname": "t5",
+          "24" : {
+                  "threadname": "OsTask_Rte_20ms_Core1",
                     "coreid": 1
             },
-            "27" : {
-                  "threadname": "t5",
+          "27" : {
+                  "threadname": "OsTask_Rte_2ms_Core1",
                     "coreid": 1
             },
-            "35" : {
-                  "threadname": "t5",
+          "35" : {
+                  "threadname": "OsTask_Sch_10ms_Core1",
                     "coreid": 1
             },
-            "43" : {
-                  "threadname": "t5",
+          "43" : {
+                  "threadname": "Os_TraceId_CounterIsr_OsCounter_Core1",
                     "coreid": 1
             },
-            "14" : {
-                  "threadname": "t5",
+          "14" : {
+                  "threadname": "OsTask_Rte_100ms_Core2",
                     "coreid": 2
             },
-            "25" : {
-                  "threadname": "t5",
+          "25" : {
+                  "threadname": "OsTask_Rte_20ms_Core2",
                     "coreid": 2
             },
-            "36" : {
-                  "threadname": "t5",
+          "36" : {
+                  "threadname": "OsTask_Sch_10ms_Core2",
                     "coreid": 2
             },
-            "44" : {
-                  "threadname": "t5",
+          "44" : {
+                  "threadname": "Os_TraceId_CounterIsr_OsCounter_Core2",
                     "coreid": 2
             },
-            "15" : {
-                  "threadname": "t5",
+          "15" : {
+                  "threadname": "OsTask_Rte_100ms_Core3",
                     "coreid": 3
             },
-            "19" : {
-                  "threadname": "t5",
+          "19" : {
+                  "threadname": "OsTask_Rte_10ms_Core3",
                     "coreid": 3
             },
-            "22" : {
-                  "threadname": "t5",
+          "22" : {
+                  "threadname": "OsTask_Rte_200ms_Core3",
                     "coreid": 3
             },
-            "28" : {
-                  "threadname": "t5",
+          "28" : {
+                  "threadname": "OsTask_Rte_2ms_Core3",
                     "coreid": 3
             },
-            "31" : {
-                  "threadname": "t5",
+          "31" : {
+                  "threadname": "OsTask_Rte_500ms_Core3",
                     "coreid": 3
             },
-            "33" : {
-                  "threadname": "t5",
+          "33" : {
+                  "threadname": "OsTask_Rte_50ms_Core3",
                     "coreid": 3
             },
-            "37" : {
-                  "threadname": "t5",
+          "37" : {
+                  "threadname": "OsTask_Sch_10ms_Core3",
                     "coreid": 3
             },
-            "45" : {
-                  "threadname": "t5",
+          "45" : {
+                  "threadname": "Os_TraceId_CounterIsr_OsCounter_Core3",
                     "coreid": 3
             },
-            "16" : {
-                  "threadname": "t5",
+          "16" : {
+                  "threadname": "OsTask_Rte_100ms_Core4",
                     "coreid": 4
             },
-            "20" : {
-                  "threadname": "t5",
+          "20" : {
+                  "threadname": "OsTask_Rte_1ms_Core4",
                     "coreid": 4
             },
-            "38" : {
-                  "threadname": "t5",
+          "38" : {
+                  "threadname": "OsTask_Sch_10ms_Core4",
                     "coreid": 4
             },
-             "46" : {
-                  "threadname": "t5",
+         "46" : {
+                  "threadname": "Os_TraceId_CounterIsr_OsCounter_Core4",
                     "coreid": 4
             },
-             "17" : {
-                  "threadname": "t5",
+          "17" : {
+                  "threadname": "OsTask_Rte_100ms_Core5",
                     "coreid": 5
             },
-            "29" : {
-                  "threadname": "t5",
+          "29" : {
+                  "threadname": "OsTask_Rte_2ms_Core5",
                     "coreid": 5
             },
-            "39" : {
-                  "threadname": "t5",
+          "39" : {
+                  "threadname": "OsTask_Sch_10ms_Core5",
                     "coreid": 5
             },
-            "47" : {
-                  "threadname": "t5",
+          "47" : {
+                  "threadname": "Os_TraceId_CounterIsr_OsCounter_Core5",
                     "coreid": 5
             },
-            "1" : {
-                  "threadname": "t5",
+          "0" : {
+                  "threadname": "IdleTask_OsCore0",
+                  "coreid": 0
+            },
+          "1" : {
+                  "threadname": "IdleTask_OsCore1",
                     "coreid": 1
             },
-            "2" : {
-                  "threadname": "t5",
+          "2" : {
+                  "threadname": "IdleTask_OsCore2",
                     "coreid": 2
             },
-            "3" : {
-                  "threadname": "t5",
+          "3" : {
+                  "threadname": "IdleTask_OsCore3",
                     "coreid": 3
             },
-           "4" : {
-                  "threadname": "t5",
+         "4" : {
+                  "threadname": "IdleTask_OsCore4",
                     "coreid": 4
             },
-            "5" : {
-                  "threadname": "t5",
+          "5" : {
+                  "threadname": "IdleTask_OsCore5",
                     "coreid": 5
             }
   },

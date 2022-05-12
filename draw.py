@@ -10,7 +10,6 @@ from pyqtgraph.Qt import QtWidgets
 from PyQt5.QtWidgets import QPushButton
 # from PyQt5.QtCore import pyqtSignal
 from threading import Thread
-import time
 
 stopsign = False
 
@@ -43,13 +42,10 @@ def runGUI(pipe, core_num=1):
     with open('./configuration.json', 'r') as f:
         conf_dict = json.load(f)
 
-    t0 = time.time()
-
-    def runrecv(pipe, *args):  # args 是plot对象tuple
+    def runrecv(queue):  # args 是plot对象tuple
         nonlocal bars, parameters, core_curr
-        num = 0
         while True:
-            bars, parameters, core_curr = pipe.recv()
+            bars, parameters, core_curr = queue.get()
             bars = np.compress(bars[:, 3] != 3, bars, axis=0)  # 不画出停止运行的thread
             bars = np.compress(bars[:, 2] != 0, bars, axis=0)  # 持续时间为0的bars
 
@@ -71,12 +67,6 @@ def runGUI(pipe, core_num=1):
                                                width=bars_ready[:, 2] * 0.00001,
                                                height=3, brush='g', pen=pg.mkPen('g', width=0.01))
                     plots[core_curr].addItem(bg_ready)
-                #
-                # if time.time() - t0 > 0.5:
-                #     table.setData(parameters)
-
-                num += 1
-                # print(num)
 
     app = pg.mkQApp('monitor of thread')
 
@@ -135,17 +125,29 @@ def runGUI(pipe, core_num=1):
     t1 = Thread(target=runrecv, args=(pipe,))  # 接受数据线程
     t1.start()
 
-    table = pg.TableWidget()
-    pbutton1 = QPushButton('STOP')
-    pbutton2 = QPushButton('START')
-    pbutton1.setText('STOP')
+    table1 = pg.TableWidget()
+    table2 = pg.TableWidget()
+    table3 = pg.TableWidget()
+    table4 = pg.TableWidget()
+    table5 = pg.TableWidget()
+    table6 = pg.TableWidget()
+    tables = (table1, table2, table3, table4, table5, table6)
+    # pbutton1 = QPushButton('STOP')
+    # pbutton2 = QPushButton('START')
+    # pbutton1.setText('STOP')
     # pbutton2 = QPushButton('START')
     # pbutton2.setText('START')
-    pbutton1.clicked.connect(tostop)
+    # pbutton1.clicked.connect(tostop)
     # pbutton2.clicked.connect()
-    mylayout.addWidget(table, row=1, col=0)
-    mylayout.addWidget(pbutton1, row=2, col=0)
-    mylayout.addWidget(pbutton2, row=2, col=0)
+    mylayout.addWidget(table1, row=1, col=0)
+    mylayout.addWidget(table2, row=2, col=0)
+    mylayout.addWidget(table3, row=3, col=0)
+    mylayout.addWidget(table4, row=4, col=0)
+    mylayout.addWidget(table5, row=5, col=0)
+    mylayout.addWidget(table6, row=6, col=0)
+
+    # mylayout.addWidget(pbutton1, row=2, col=0)
+    # mylayout.addWidget(pbutton2, row=2, col=0)
 
     # # plot内部设置
     p1.setLabel('left', text='Thread on Core0')
@@ -224,8 +226,9 @@ def runGUI(pipe, core_num=1):
 
     # 更新时间参数设置
     def updateparameters():
-        nonlocal table
-        table.setData(parameters)
+        nonlocal tables, core_curr
+        tables[core_curr].setData(parameters)
+
 
     timer = pg.QtCore.QTimer()
     timer.timeout.connect(updateparameters)
