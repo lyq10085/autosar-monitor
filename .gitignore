@@ -1,5 +1,6 @@
 __pycache__
 .idea/
+.vscode/
 *.txt
 realtimeplotting.py
 Untitled*.py
