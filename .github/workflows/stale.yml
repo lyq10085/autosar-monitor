@@ -2,7 +2,7 @@ name: 'Close stale issues and PRs'
 on:
   schedule:
     # every 10 minute check issue and pull request once
-    - cron: '0 18 * * *'
+    - cron: '25 11 * * *'
 
 jobs:
 #   invalid-to-stale:
